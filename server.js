@@ -6,12 +6,18 @@ require('dotenv').config();
 // Application Dependencies
 const express = require('express');
 const cors = require('cors');
+const superagent = require('superagent');
 
 // Our Dependencies
 const client = require('./modules/client.js');
-const weather = require('./modules/weather.js');
-const events = require('./modules/events.js');
-const location = require('./modules/location.js');
+const Weather = require('./modules/weatherConstructor.js');
+// const events = require('./modules/events.js');
+const isLocationInDataBase = require('./modules/location/isLocationInDataBase');
+const getLocationFromAPI = require('./modules/location/getLocationFromAPI');
+const getLocationFromDataBase = require('./modules/location/getLocationFromDataBase');
+const getYelpData = require('./modules/yelp/getYelpData');
+const getMoviesData = require('./modules/movies/getMoviesData');
+const getTrailsData = require('./modules/trails/getTrailsData');
 
 // Application Setup
 const PORT = process.env.PORT;
@@ -19,46 +25,123 @@ const app = express();
 app.use(cors());
 
 // Route Definitions
-app.get('/location', locationHandler);
-app.get('/weather', weatherHandler);
+app.get('/location', getLocation);
+app.get('/weather', getWeather);
 app.get('/events', eventsHandler);
+app.get('/yelp', getYelp);
+app.get('/movies', getMovies);
+app.get('/trails', getTrails);
 app.get('/all', getAllHandler);
 app.use('*', notFoundHandler);
 app.use(errorHandler);
 
+/////////////////// LOCATION ///////////////////
+
+function getLocation(request,response) {
+  const city = request.query.data;
+  isLocationInDataBase(city)
+    .then(data => {
+      if(data.rows.length > 0){
+        render(data.rows[0], response)
+      } else {
+        getLocationFromAPI(city)
+          .then(data => render(data, response))
+          .catch( (error) => errorHandler(error, request, response) );
+      }
+    })
+}
+
+//////////// YELP ////////////////////////
+
+function getYelp(request, response){
+  const locationObj = request.query.data;
+  getYelpData(locationObj, response);
+}
+
+//////////////// MOVIES ///////////////////
+
+function getMovies(request, response){
+  let locationObj = request.query.data;
+  getMoviesData(locationObj, response);
+}
+
+
+///////////// TRAILS //////////////////////////
+
+function getTrails(request, response){
+  let locationObj = request.query.data;
+  getTrailsData(locationObj, response);
+}
+
+/////////// WEATHER ////////////////////////
+
+function getWeather(request,response) {
+  const location = request.query.data;
+  getWeatherData(location)
+    .then ( weatherSummaries => render(weatherSummaries, response) )
+    .catch( (error) => errorHandler(error, request, response) );
+}
+
+// http://localhost:3000/weather?data%5Blatitude%5D=47.6062095&data%5Blongitude%5D=-122.3320708
+// That encoded query string is: data[latitude]=47.6062095&data[longitude]=122.3320708
+function getWeatherData(location) {
+  const url = `https://api.darksky.net/forecast/${process.env.WEATHER_API_KEY}/${location.latitude},${location.longitude}`;
+  return superagent.get(url)
+    .then( data => parseWeatherData(data.body) );
+};
+
+function parseWeatherData(data) {
+  try {
+    const weatherSummaries = data.daily.data.map(day => {
+      return new Weather(day);
+    });
+    return Promise.resolve(weatherSummaries);
+  } catch(e) {
+    return Promise.reject(e);
+  }
+}
+
+
+///////////////// EVENTS ////////////////////
+
+function eventsHandler(request,response) {
+  const location = request.query.data.formatted_query;
+  getEventsData(location)
+    .then ( eventsSummaries => render(eventsSummaries, response) )
+    .catch( (error) => errorHandler(error, request, response) );
+}
+
+function getEventsData(location){
+  const url = `https://www.eventbriteapi.com/v3/events/search?location.address=${location}&location.within=10km&expand=venue`
+
+  return superagent.get(url)
+    .set('Authorization', `Bearer ${process.env.EVENTBRITE_API_KEY}`)
+    .then(data => parseEventData(data.body))
+    .catch( (error) => errorHandler(error, request, response));
+
+}
+
+function parseEventData(data) {
+  try {
+    const events = data.events.map(eventData => {
+      const event = new Event(eventData);
+      return event;
+    });
+    return Promise.resolve(events);
+  } catch(e) {
+    return Promise.reject(e);
+  }
+}
 
 function getAllHandler(request,response) {
   let location = request.query.data;
   let requests = [];
-  requests.push(weather.getWeatherData(location));
+  requests.push(getWeatherData(location));
 
   Promise.all(requests)
     .then(allData => {
       render(allData, response);
     });
-}
-
-// Even after modularization, these look the exact same. Can we break this out even further?
-// Stretch Goals, for sure
-function locationHandler(request,response) {
-  const city = request.query.data;
-  location.getLocationData(city)
-    .then(data => render(data, response))
-    .catch( (error) => errorHandler(error, request, response) );
-}
-
-function weatherHandler(request,response) {
-  const location = request.query.data;
-  weather.getWeatherData(location)
-    .then ( weatherSummaries => render(weatherSummaries, response) )
-    .catch( (error) => errorHandler(error, request, response) );
-}
-
-function eventsHandler(request,response) {
-  const location = request.query.data.formatted_query;
-  events.getEventsData(location)
-    .then ( weatherSummaries => render(weatherSummaries, response) )
-    .catch( (error) => errorHandler(error, request, response) );
 }
 
 function render(data, response) {
@@ -79,6 +162,6 @@ function startServer() {
 
 // Start Up the Server after the database is connected and cache is loaded
 client.connect()
-  .then( location.loadCache )
+  .then( getLocationFromDataBase )
   .then( startServer )
   .catch( err => console.error(err) );  
