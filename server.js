@@ -105,14 +105,16 @@ function parseWeatherData(data) {
 ///////////////// EVENTS ////////////////////
 
 function eventsHandler(request,response) {
-  const location = request.query.data.formatted_query;
-  getEventsData(location)
+  const longitude = request.query.data.longitude;
+  const latitude = request.query.data.latitude;
+  getEventsData(latitude, longitude)
     .then ( eventsSummaries => render(eventsSummaries, response) )
     .catch( (error) => errorHandler(error, request, response) );
 }
 
-function getEventsData(location){
-  const url = `https://www.eventbriteapi.com/v3/events/search?location.address=${location}&location.within=10km&expand=venue`
+function getEventsData(latitude, longitude){
+  console.log(latitude, longitude);
+  const url = `https://www.eventbriteapi.com/v3/events/search?location.longitude=${longitude}&location.latitude=${latitude}&expand=venue`
 
   return superagent.get(url)
     .set('Authorization', `Bearer ${process.env.EVENTBRITE_API_KEY}`)
@@ -122,6 +124,7 @@ function getEventsData(location){
 }
 
 function parseEventData(data) {
+  console.log('in parse Event Data');
   try {
     const events = data.events.map(eventData => {
       const event = new Event(eventData);
@@ -131,6 +134,13 @@ function parseEventData(data) {
   } catch(e) {
     return Promise.reject(e);
   }
+}
+
+function Event(event) {
+  this.link = event.url;
+  this.name = event.name.text;
+  this.event_date = new Date(event.start.local).toString().slice(0, 15);
+  this.summary = event.summary;
 }
 
 function getAllHandler(request,response) {
