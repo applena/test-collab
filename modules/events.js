@@ -6,9 +6,9 @@ const events = {};
 
 // Sample URL: http://localhost:3000/events?data%5Bformatted_query%5D=Seattle
 events.getEventsData = function(location) {
-  const url = `https://www.eventbriteapi.com/v3/events/search?token=${process.env.EVENTBRITE_API_KEY}&location.address=${location}`;
+  const url = `http://api.eventful.com/rest/events/search?&location=${location.query}&app_key=${EVENTFUL_API_KEY}`;
   return superagent.get(url)
-    .then( data => parseEventData(data.body) );
+    .then( data => console.log(data.body) );
 };
 
 // Helpers

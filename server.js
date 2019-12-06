@@ -107,26 +107,29 @@ function parseWeatherData(data) {
 function eventsHandler(request,response) {
   const longitude = request.query.data.longitude;
   const latitude = request.query.data.latitude;
-  getEventsData(latitude, longitude)
+  const city = request.query.data.search_query;
+
+  // console.log(city)
+
+  getEventsData(city)
     .then ( eventsSummaries => render(eventsSummaries, response) )
     .catch( (error) => errorHandler(error, request, response) );
 }
 
-function getEventsData(latitude, longitude){
-  console.log(latitude, longitude);
-  const url = `https://www.eventbriteapi.com/v3/events/search?location.longitude=${longitude}&location.latitude=${latitude}&expand=venue`
+function getEventsData(query){
+  console.log('my query', query);
+  const url = `http://api.eventful.com/json/events/search?location=${query}&date=Future&app_key=${process.env.EVENTFUL_API_KEY}`;
 
   return superagent.get(url)
-    .set('Authorization', `Bearer ${process.env.EVENTBRITE_API_KEY}`)
-    .then(data => parseEventData(data.body))
+    .then(data => parseEventData( JSON.parse(data.text)))
     .catch( (error) => errorHandler(error, request, response));
 
 }
 
 function parseEventData(data) {
-  console.log('in parse Event Data');
+  console.log('in parse Event Data', data.events.event);
   try {
-    const events = data.events.map(eventData => {
+    const events = data.events.event.map(eventData => {
       const event = new Event(eventData);
       return event;
     });
@@ -138,9 +141,9 @@ function parseEventData(data) {
 
 function Event(event) {
   this.link = event.url;
-  this.name = event.name.text;
-  this.event_date = new Date(event.start.local).toString().slice(0, 15);
-  this.summary = event.summary;
+  this.name = event.title;
+  this.event_date = event.start_time;
+  this.summary = event.description;
 }
 
 function getAllHandler(request,response) {
