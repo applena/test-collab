@@ -31,19 +31,22 @@ app.get('/events', eventsHandler);
 app.get('/yelp', getYelp);
 app.get('/movies', getMovies);
 app.get('/trails', getTrails);
-app.get('/all', getAllHandler);
+// app.get('/all', getAllHandler);
 app.use('*', notFoundHandler);
 app.use(errorHandler);
 
 /////////////////// LOCATION ///////////////////
 
 function getLocation(request,response) {
-  const city = request.query.data;
+  const city = request.query.city;
+  console.log('the city is:', city)
   isLocationInDataBase(city)
     .then(data => {
       if(data.rows.length > 0){
+        console.log('location was in the database')
         render(data.rows[0], response)
       } else {
+        console.log('location was not in the database')
         getLocationFromAPI(city)
           .then(data => render(data, response))
           .catch( (error) => errorHandler(error, request, response) );
@@ -51,41 +54,20 @@ function getLocation(request,response) {
     })
 }
 
-//////////// YELP ////////////////////////
-
-function getYelp(request, response){
-  const locationObj = request.query.data;
-  getYelpData(locationObj, response);
-}
-
-//////////////// MOVIES ///////////////////
-
-function getMovies(request, response){
-  let locationObj = request.query.data;
-  getMoviesData(locationObj, response);
-}
-
-
-///////////// TRAILS //////////////////////////
-
-function getTrails(request, response){
-  let locationObj = request.query.data;
-  getTrailsData(locationObj, response);
-}
-
 /////////// WEATHER ////////////////////////
 
 function getWeather(request,response) {
-  const location = request.query.data;
-  getWeatherData(location)
+  const latitude = request.query.latitude;
+  const longitude = request.query.longitude;
+    getWeatherData(latitude, longitude)
     .then ( weatherSummaries => render(weatherSummaries, response) )
     .catch( (error) => errorHandler(error, request, response) );
 }
 
 // http://localhost:3000/weather?data%5Blatitude%5D=47.6062095&data%5Blongitude%5D=-122.3320708
 // That encoded query string is: data[latitude]=47.6062095&data[longitude]=122.3320708
-function getWeatherData(location) {
-  const url = `https://api.darksky.net/forecast/${process.env.WEATHER_API_KEY}/${location.latitude},${location.longitude}`;
+function getWeatherData(latitude, longitude) {
+  const url = `https://api.darksky.net/forecast/${process.env.WEATHER_API_KEY}/${latitude},${longitude}`;
   return superagent.get(url)
     .then( data => parseWeatherData(data.body) );
 };
@@ -101,15 +83,37 @@ function parseWeatherData(data) {
   }
 }
 
+//////////// YELP ////////////////////////
+
+function getYelp(request, response){
+  const city = request.query.city;
+  getYelpData(city, response);
+}
+
+//////////////// MOVIES ///////////////////
+
+function getMovies(request, response){
+  let city = request.query.search_query;
+  getMoviesData(city, response);
+}
+
+
+///////////// TRAILS //////////////////////////
+
+function getTrails(request, response){
+  let latitude = request.query.latitude;
+  let longitude = request.query.longitude;
+  getTrailsData(latitude, longitude, response);
+}
+
+
 
 ///////////////// EVENTS ////////////////////
 
 function eventsHandler(request,response) {
-  const longitude = request.query.data.longitude;
-  const latitude = request.query.data.latitude;
-  const city = request.query.data.search_query;
+  let city = request.query.search_query;
 
-  // console.log(city)
+console.log('events city', city)
 
   getEventsData(city)
     .then ( eventsSummaries => render(eventsSummaries, response) )
@@ -127,7 +131,6 @@ function getEventsData(query){
 }
 
 function parseEventData(data) {
-  console.log('in parse Event Data', data.events.event);
   try {
     const events = data.events.event.map(eventData => {
       const event = new Event(eventData);
@@ -146,16 +149,16 @@ function Event(event) {
   this.summary = event.description;
 }
 
-function getAllHandler(request,response) {
-  let location = request.query.data;
-  let requests = [];
-  requests.push(getWeatherData(location));
+// function getAllHandler(request,response) {
+//   let location = request.query.data;
+//   let requests = [];
+//   requests.push(getWeatherData(location));
 
-  Promise.all(requests)
-    .then(allData => {
-      render(allData, response);
-    });
-}
+//   Promise.all(requests)
+//     .then(allData => {
+//       render(allData, response);
+//     });
+// }
 
 function render(data, response) {
   response.status(200).json(data);

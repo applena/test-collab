@@ -1,8 +1,8 @@
 const superagent = require('superagent');
 const Yelp = require('./yelpConstructor');
 
-function getYelpData(location, response){
-  const url = `https://api.yelp.com/v3/businesses/search?location=${location.search_query}`;
+function getYelpData(city, response){
+  const url = `https://api.yelp.com/v3/businesses/search?location=${city}`;
 
   superagent.get(url)
     .set('Authorization', `Bearer ${process.env.YELP_API_KEY}`)

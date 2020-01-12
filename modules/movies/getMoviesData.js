@@ -1,8 +1,8 @@
 const Movie = require('./movieConstructor');
 const superagent = require('superagent');
 
-function getMoviesData(location, response){
-  let url = `https://api.themoviedb.org/3/search/movie/?api_key=${process.env.MOVIES_API_KEY}&language=en-US&page=1&query=${location.search_query}`;
+function getMoviesData(city, response){
+  let url = `https://api.themoviedb.org/3/search/movie/?api_key=${process.env.MOVIES_API_KEY}&language=en-US&page=1&query=${city}`;
 
   superagent.get(url)
     .then(results => {

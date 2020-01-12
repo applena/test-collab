@@ -2,9 +2,12 @@ const superagent = require('superagent');
 const storeLocationInDataBase = require('./storeLocationinDataBase');
 
 function getLocationFromAPI(city) {
-  const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${city}&key=${process.env.GEOCODE_API_KEY}`;
+  console.log('going to the api to get information')
+  const url = `https://us1.locationiq.com/v1/search.php?key=${process.env.GEOCODE_API_KEY}&q=${city}&format=json&limit=1`;
   return superagent.get(url)
-    .then(data => storeLocationInDataBase(city, data.body) );
+    .then(data => {
+      return storeLocationInDataBase(city, data.body) 
+    });
 };
 
 module.exports = getLocationFromAPI;
